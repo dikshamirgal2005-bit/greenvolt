@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { auth, db } from '../firebase';
 import { signOut } from 'firebase/auth';
-import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, orderBy } from 'firebase/firestore';
 import AddEwaste from './AddEwaste';
 import FindingCenters from './FindingCenters';
 import History from './History';
@@ -13,6 +13,15 @@ const UserDashboard = () => {
     const [companies, setCompanies] = useState([]);
     const [ecoPoints, setEcoPoints] = useState(0);
     const [userProfile, setUserProfile] = useState(null);
+    const [notifications, setNotifications] = useState([]);
+    const [showNotifications, setShowNotifications] = useState(false);
+    const [unreadCount, setUnreadCount] = useState(0);
+
+    // Initialize read notifications from local storage
+    const [readNotifIds, setReadNotifIds] = useState(() => {
+        const saved = localStorage.getItem('readNotifications');
+        return saved ? JSON.parse(saved) : [];
+    });
 
     useEffect(() => {
         const fetchData = async () => {
@@ -35,6 +44,26 @@ const UserDashboard = () => {
                         setEcoPoints(userData.ecoPoints || 0);
                         setUserProfile(userData);
                     }
+
+                    // Fetch notifications (requests with status updates)
+                    // Removing orderBy temporarily to avoid index issues if not created
+                    const q = query(
+                        collection(db, 'ewasteRequests'),
+                        where('userId', '==', user.uid)
+                    );
+                    const requestSnapshot = await getDocs(q);
+                    const allRequests = requestSnapshot.docs.map(doc => ({
+                        id: doc.id,
+                        ...doc.data()
+                    }));
+
+                    const notifs = allRequests.filter(req =>
+                        ['approved', 'rejected', 'assigned'].includes(req.status) &&
+                        !readNotifIds.includes(req.id)
+                    );
+
+                    setNotifications(notifs);
+                    setUnreadCount(notifs.length);
                 }
             } catch (error) {
                 console.error("Error fetching data:", error);
@@ -50,6 +79,26 @@ const UserDashboard = () => {
         } catch (error) {
             console.error('Logout error:', error);
         }
+    };
+
+    const markAsRead = (id) => {
+        const newReadIds = [...readNotifIds, id];
+        setReadNotifIds(newReadIds);
+        localStorage.setItem('readNotifications', JSON.stringify(newReadIds));
+
+        const updatedNotifs = notifications.filter(n => n.id !== id);
+        setNotifications(updatedNotifs);
+        setUnreadCount(updatedNotifs.length);
+    };
+
+    const clearAllNotifications = (e) => {
+        if (e && e.stopPropagation) e.stopPropagation();
+        const allIds = [...readNotifIds, ...notifications.map(n => n.id)];
+        setReadNotifIds(allIds);
+        localStorage.setItem('readNotifications', JSON.stringify(allIds));
+
+        setNotifications([]);
+        setUnreadCount(0);
     };
 
     const user = auth.currentUser;
@@ -71,6 +120,56 @@ const UserDashboard = () => {
                         <span className="points-icon">🌿</span>
                         <span className="points-text">Eco Points: {ecoPoints}</span>
                     </div>
+
+                    <div className="notification-container">
+                        <div className="bell-icon" onClick={() => setShowNotifications(!showNotifications)}>
+                            🔔
+                            {unreadCount > 0 && <span className="notification-badge">{unreadCount}</span>}
+                        </div>
+                        {showNotifications && (
+                            <div className="notification-dropdown">
+                                <div className="notification-header-row">
+                                    <h3>Notifications</h3>
+                                    {notifications.length > 0 && (
+                                        <button className="clear-all-btn" onClick={clearAllNotifications}>
+                                            Clear All
+                                        </button>
+                                    )}
+                                </div>
+                                {notifications.length === 0 ? (
+                                    <p className="no-notifications">No notifications yet</p>
+                                ) : (
+                                    <div className="notification-list">
+                                        {notifications.map(notif => (
+                                            <div
+                                                key={notif.id}
+                                                className={`notification-item ${notif.status}`}
+                                                onClick={() => markAsRead(notif.id)}
+                                            >
+                                                <div className="notif-header">
+                                                    <span className="notif-title">{notif.fullName || "Request"}</span>
+                                                    <span className="notif-time">
+                                                        {notif.createdAt ? new Date(notif.createdAt.seconds * 1000).toLocaleDateString() : ""}
+                                                    </span>
+                                                </div>
+                                                <p className="notif-message">
+                                                    Status: <strong style={{ color: notif.status === 'approved' ? '#4caf50' : notif.status === 'rejected' ? '#f44336' : '#2196f3' }}>
+                                                        {notif.status.toUpperCase()}
+                                                    </strong>
+                                                </p>
+                                                {notif.status === 'assigned' && (
+                                                    <p className="notif-detail">
+                                                        Agent <strong>{notif.agentName}</strong> has been assigned to collect your e-waste.
+                                                    </p>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+
                     <div className="user-avatar">
                         <span className="avatar-circle">{username.charAt(0).toUpperCase()}</span>
                         <span className="username">{username}</span>

@@ -213,6 +213,25 @@
     color: #1e8449;
 }
 
+/* Agent Details in History */
+.agent-details-history {
+    background: #e3f2fd;
+    padding: 10px;
+    border-radius: 8px;
+    margin-top: 10px;
+    border-left: 3px solid #2196f3;
+}
+
+.agent-details-history p {
+    margin: 4px 0;
+    font-size: 13px;
+    color: #0d47a1;
+}
+
+.agent-details-history strong {
+    color: #0d47a1;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
     .history {

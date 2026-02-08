@@ -12,6 +12,9 @@ const ViewRequests = () => {
     const [showModal, setShowModal] = useState(false);
     const [showPhotoModal, setShowPhotoModal] = useState(false);
     const [selectedPhoto, setSelectedPhoto] = useState(null);
+    const [showAssignModal, setShowAssignModal] = useState(false);
+    const [agentName, setAgentName] = useState('');
+    const [agentPhone, setAgentPhone] = useState('');
 
     useEffect(() => {
         loadRequests();
@@ -86,11 +89,51 @@ const ViewRequests = () => {
         setSelectedPhoto(null);
     };
 
+    const openAssignModal = (request) => {
+        setSelectedRequest(request);
+        setAgentName(request.agentName || '');
+        setAgentPhone(request.agentPhone || '');
+        setShowAssignModal(true);
+    };
+
+    const closeAssignModal = () => {
+        setShowAssignModal(false);
+        setSelectedRequest(null);
+        setAgentName('');
+        setAgentPhone('');
+    };
+
+    const handleAssignAgent = async () => {
+        if (!agentName || !agentPhone) {
+            alert('Please fill in both Agent Name and Phone');
+            return;
+        }
+
+        try {
+            await updateDoc(doc(db, 'ewasteRequests', selectedRequest.id), {
+                status: 'assigned',
+                agentName: agentName,
+                agentPhone: agentPhone
+            });
+
+            setRequests(requests.map(req =>
+                req.id === selectedRequest.id ? { ...req, status: 'assigned', agentName, agentPhone } : req
+            ));
+
+            closeAssignModal();
+            alert('Agent assigned successfully!');
+        } catch (error) {
+            console.error('Error assigning agent:', error);
+            alert('Failed to assign agent');
+        }
+    };
+
     const getStatusColor = (status) => {
         switch (status) {
             case 'pending': return '#ffa500';
             case 'approved': return '#4caf50';
             case 'rejected': return '#f44336';
+            case 'assigned': return '#2196f3';
             default: return '#999';
         }
     };
@@ -132,6 +175,12 @@ const ViewRequests = () => {
                     >
                         Rejected ({requests.filter(r => r.status === 'rejected').length})
                     </button>
+                    <button
+                        className={filter === 'assigned' ? 'active' : ''}
+                        onClick={() => setFilter('assigned')}
+                    >
+                        Assigned ({requests.filter(r => r.status === 'assigned').length})
+                    </button>
                 </div>
             </div>
 
@@ -159,6 +208,12 @@ const ViewRequests = () => {
                                     <p><strong>Weight:</strong> {request.weight} kg</p>
                                     <p><strong>Prize:</strong> ₹{request.prize}</p>
                                     <p><strong>Date:</strong> {new Date(request.createdAt).toLocaleDateString()}</p>
+                                    {request.agentName && (
+                                        <div className="agent-info">
+                                            <p><strong>Agent:</strong> {request.agentName}</p>
+                                            <p><strong>Phone:</strong> {request.agentPhone}</p>
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="request-status">
                                     <span
@@ -188,6 +243,13 @@ const ViewRequests = () => {
                                         disabled={request.status === 'rejected'}
                                     >
                                         ✗ Reject
+                                    </button>
+                                    <button
+                                        className="btn-assign"
+                                        onClick={() => openAssignModal(request)}
+                                        disabled={request.status === 'rejected'}
+                                    >
+                                        👤 Assign Agent
                                     </button>
                                 </div>
                             </div>
@@ -258,6 +320,41 @@ const ViewRequests = () => {
                     <div className="photo-modal-content">
                         <button className="photo-modal-close" onClick={closePhotoModal}>✕</button>
                         <img src={selectedPhoto} alt="Product" className="photo-modal-image" />
+                    </div>
+                </div>
+            )}
+
+            {showAssignModal && (
+                <div className="modal-overlay" onClick={closeAssignModal}>
+                    <div className="modal-content assign-modal" onClick={(e) => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h2>Assign Agent</h2>
+                            <button className="modal-close" onClick={closeAssignModal}>✕</button>
+                        </div>
+                        <div className="modal-body">
+                            <div className="form-group">
+                                <label>Agent Name</label>
+                                <input
+                                    type="text"
+                                    value={agentName}
+                                    onChange={(e) => setAgentName(e.target.value)}
+                                    placeholder="Enter agent name"
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label>Agent Phone Number</label>
+                                <input
+                                    type="tel"
+                                    value={agentPhone}
+                                    onChange={(e) => setAgentPhone(e.target.value)}
+                                    placeholder="Enter agent phone"
+                                />
+                            </div>
+                        </div>
+                        <div className="modal-footer">
+                            <button className="btn-cancel" onClick={closeAssignModal}>Cancel</button>
+                            <button className="btn-confirm" onClick={handleAssignAgent}>Assign Agent</button>
+                        </div>
                     </div>
                 </div>
             )}

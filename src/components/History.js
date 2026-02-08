@@ -153,7 +153,14 @@ const History = () => {
                                             <p><strong>Quantity:</strong> <span>{request.quantity}</span></p>
                                             <p><strong>Weight:</strong> <span>{request.weight} kg</span></p>
                                             <p><strong>Value:</strong> <span>₹{request.prize}</span></p>
+                                            <p><strong>Value:</strong> <span>₹{request.prize}</span></p>
                                             <p><strong>Date:</strong> <span>{new Date(request.createdAt).toLocaleDateString()}</span></p>
+                                            {request.agentName && (
+                                                <div className="agent-details-history">
+                                                    <p><strong>Assigned Agent:</strong> <span>{request.agentName}</span></p>
+                                                    <p><strong>Agent Phone:</strong> <span>{request.agentPhone}</span></p>
+                                                </div>
+                                            )}
                                         </div>
 
                                         <div style={{ margin: '15px 0' }}>
